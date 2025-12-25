@@ -1,11 +1,15 @@
 import os
 import shutil
+import sys
 
+from pathlib import Path
 from htmlnode import HTMLNode, LeafNode, ParentNode, text_node_to_html_node
 from textnode import TextType, TextNode
 from mkdn_to_blocks import markdown_to_blocks
 from extract_title_mkdn import extract_title
 from mkdn_to_html import markdown_to_html_node
+
+basepath = sys.argv[1] if len(sys.argv) > 1 else "/"
 
 def copy_static_to_public(source_dir, dest_dir):
     if os.path.exists(dest_dir):
@@ -31,7 +35,7 @@ def copy_recursive(src, dst):
             print(f"Created directory {dst_path}")
             copy_recursive(src_path, dst_path)
 
-def generate_page(from_path, template_path, dest_path):
+def generate_page(from_path, template_path, dest_path, basepath):
     print(f"Generating page from {from_path} to {dest_path} using {template_path}")
 
     with open(from_path, 'r') as f:
@@ -47,11 +51,14 @@ def generate_page(from_path, template_path, dest_path):
     page = template.replace("{{ Title }}", title)
     page = page.replace("{{ Content }}", html_string)
 
+    page = page.replace('href="/', f'href="{basepath}')
+    page = page.replace('src="/', f'src="{basepath}')
+
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
     with open(dest_path, 'w') as f:
         f.write(page)
 
-def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, basepath):
     if not os.path.exists(dest_dir_path):
         os.makedirs(dest_dir_path)
 
@@ -62,16 +69,16 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
             dest_path = os.path.join(dest_dir_path, relative_path)
             dest_path = dest_path.replace(".md", ".html")
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-            generate_page(item_path, template_path, dest_path)
+            generate_page(item_path, template_path, dest_path, basepath)
         elif os.path.isdir(item_path):
             sub_dest = os.path.join(dest_dir_path, os.path.basename(item_path))
-            generate_pages_recursive(item_path, template_path, sub_dest)
+            generate_pages_recursive(item_path, template_path, sub_dest, basepath)
 
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
     static_dir = os.path.join(project_root, "static")
-    public_dir = os.path.join(project_root, "public")
+    public_dir = os.path.join(project_root, "docs")
     content_dir = os.path.join(project_root, "content")
     template_path = os.path.join(project_root, "template.html")
 
@@ -79,7 +86,7 @@ def main():
         shutil.rmtree(public_dir)
 
     copy_static_to_public(static_dir, public_dir)
-    generate_pages_recursive(content_dir, template_path, public_dir)
+    generate_pages_recursive(content_dir, template_path, public_dir, basepath)
     print("Website generated.")
 
 if __name__ == "__main__":
